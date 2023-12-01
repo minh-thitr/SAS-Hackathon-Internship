@@ -1,0 +1,168 @@
+---
+title: "DEMOS - MEETING 03/11"
+author: "Thi Truong"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE,
+               message=FALSE, warning=FALSE)
+knitr::opts_chunk$set(fig.width=12, fig.height=8) 
+library(tinytex)
+library(lattice)
+library("readxl")
+library(rio)
+```
+
+# Some information about the data
+
+This demo used and analyzed from the *Invest+Your+Values+shareclass+results+20221216.xlsx* data in Google Drive’s folder/Data
+
+* The __Invest Your Value__ data is based on updates to mutual funds holding, which is a large data with 8665 rows and 137 columns indicating factors of ESG (or ESG scores) and returns
+
+* ESG factors are considered in the data includes: Fossil Free Funds, Deforestation Free Funds, Gender Equality Funds, Gun Free Funds, Prison Free Funds, Weapon Free Funds, Tobacco Free Funds.
+
+  + Within each funds: Variables are evaluated including grade, weight, asset, and count. 
+    
+    - Grade: Based on grade of each particular fund - A, B, C, D, and F
+    
+    - Weight: The percent of fund assets invested
+    
+    - Asset: The amount in US of fund assets invested
+    
+    - Count: The number of holding in a fund's portfolio
+
+* The data consisted of different period of time for returns such as 1 month, 3 months, 6 months, 1 year, 3 years, 5 years, 10 years, 15 years, 20 years, and since inception.
+
+
+# 1. Hypothesis: Returns are normally distributed
+
+
+## (i). Visual by histogram
+
+
+```{r}
+dataIYVS <- import_list("/Users/thitruong/Desktop/Illinois Tech/Internship/Demos-0311/Invest+Your+Values+shareclass+results+20221216.xlsx")
+```
+
+```{r}
+return1m <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 1 month`
+return6m <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 6 month`
+return1y <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 1 year`
+return5y <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 5 year`
+return10y <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 10 year`
+return15y <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 15 year`
+return20y <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, 10 year`
+returnInception <- dataIYVS$Shareclasses$`Returns and fees: Month end trailing returns, since inception`
+```
+
+```{r,fig.align='center'}
+par(mfrow=c(1,2))
+hist(return1y, main = "Month end trailing returns, 1 year", xlab="Returns - 1 year")
+qqnorm(return1y)
+qqline(return1y)
+hist(return5y, main = "Month end trailing returns, 5 year", xlab="Returns - 5 year")
+qqnorm(return5y)
+qqline(return5y)
+hist(return10y, main = "Month end trailing returns, 10 year", xlab="Returns - 10 year")
+qqnorm(return10y)
+qqline(return10y)
+hist(returnInception, main = "Month end trailing returns since Inception", xlab="Returns since inception")
+qqnorm(returnInception)
+qqline(returnInception)
+```
+
+
+Based on the graph, returns are mostly likely appear to be normally distributed for all graphs or returns
+
+## (ii). A statisic test of returns are normal.
+
+The statistic test is performed by a Shapiro-Wilk Test as following:
+
+(1). Perform Shapiro-Wilk Test by using R
+
+(2). Consider the significantly level $\alpha=0.05$:
+
+  - If p-value is not less than $\alpha$ (i.e $\mbox{p-value} > \alpha$), then, returns are normally distributed
+  
+  - If p-value is less than $\alpha$ (i.e $\mbox{p-value} < \alpha$), then, returns are not normally distributed.
+  
+**Note**: Since our sample size is large (8664), R only allows a Shapiro-Wilk Test with a maximum sample size of 5000. Thus, I'll construct 2 tests for each returns with sample size of  4332 for each variable. 
+
+*  Month end trailing returns 1 year:
+
+```{r}
+shapiro.test(return1y[1:4332])
+shapiro.test(return1y[4333:length(return1y)])
+```
+
+Based on the two test, both of them have p-value $<\alpha=0.05$, thus month end trailing returns 1 year is not normally distributed.
+
+* Month end trailing returns 5 years:
+
+```{r}
+shapiro.test(return5y[1:4332])
+shapiro.test(return5y[4333:length(return5y)])
+```
+
+Based on the two test, both of them have p-value $<\alpha=0.05$, thus month end trailing returns 5 years is not normally distributed.
+
+
+*  Month end trailing returns 10 years:
+
+```{r}
+shapiro.test(return10y[1:4332])
+shapiro.test(return10y[4333:length(return10y)])
+```
+
+Based on the two test, both of them have p-value $< \alpha=0.05$, thus month end trailing returns 10 years is not normally distributed.
+
+*  Month end trailing returns since inception:
+
+```{r}
+shapiro.test(returnInception[1:4332])
+shapiro.test(returnInception[4333:length(returnInception)])
+```
+
+Based on the two test, both of them have p-value $< \alpha=0.05$, thus month end trailing returns since inception is not normally distributed.
+
+Overall, based on the tests, all returns distribution are not normal. Indeed, there is a limitation of Shapiron-Wilk Test, because the Shapiron-Wilk Test is sensitive to a small deviation, our sample size is large that could lead to a high probability of rejecting normal distribution. For this reason, it may have an impact of statistical methods we'd want to apply if we would like to predict returns, since some of the methods might assume normality.
+
+# 2. Hypothesis: ESG rating have linear or polynomial relationship with returns
+
+For this hypothesis, we only consider "Fossil Free Funds: Fossil fuel grade" as the ESG rating and returns since inception as dependence variable.
+
+## (i). Boxplot of ESG ratings vs. Returns
+
+```{r,fig.align='center',fig.width=10,fig.height=8}
+par(mfrow=c(1,2))
+esgRating <- as.factor(dataIYVS$Shareclasses$`Fossil Free Funds: Fossil fuel grade`)
+boxplot(return1y ~ esgRating, xlab="ESG Rating",ylab = "Returns 1 year",main = "Returns 1 year vs ESG rating")
+boxplot(return5y ~ esgRating, xlab="ESG Rating",ylab = "Returns 5 years",main = "Returns 5 years vs ESG rating")
+boxplot(return10y ~ esgRating, xlab="ESG Rating",ylab = "Returns 10 years",main ="Returns 10 years vs ESG rating")
+boxplot(returnInception ~ esgRating, xlab="ESG Rating",ylab = "Returns since Inception", main = "Returns since Inception vs ESG rating")
+```
+
+## (ii). Plot of ESG rating vs. Returns
+
+```{r,fig.align='center'}
+plot(as.numeric(esgRating),returnInception,main = "Returns vs. ESG Rating", xlab="ESG Rating", ylab = "Returns")
+```
+
+**Note**: 1 indicates grade A, 2 indicates grade B, 3 indicates grade C, 4 indicates D, and 5 indicates F.
+
+## (iii). Correlation coefficient between ESG rating and Returns
+
+```{r}
+corr <- cor(as.numeric(esgRating),returnInception,use = "complete.obs")
+```
+
+Compute their correlation coefficient, we obtain `r round(corr,3)`.
+
+With a correlation coefficient $r=0.042$, the association of ESG rating and returns are very weak or no association, so there is non-linear relationship. Thus, we can conclude that the ESG rating have a polynomial relationship with returns since inception.
+
+
